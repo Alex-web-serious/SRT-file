@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, useColorScheme, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -13,7 +13,6 @@ import { buildSRT } from '../utils/srtBuilder';
 import { parseSRT } from '../utils/srtParser';
 import { isOnline } from '../utils/networkCheck';
 
-// Replace YOUR_LOCAL_IP with your machine's local network IP (e.g. 192.168.1.10)
 const BACKEND_URL = 'https://srt-file.onrender.com';
 
 const LANGUAGES = [
@@ -43,10 +42,13 @@ export const EditorScreen = () => {
   const [showExport, setShowExport] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
-  const [undoSnapshot, setUndoSnapshot] = useState<SubtitleBlock[] | null>(null);
-  const [showUndo, setShowUndo] = useState(false);
   const [savedIndicator, setSavedIndicator] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+
+  // Undo / Redo history
+  const [past, setPast] = useState<SubtitleBlock[][]>([]);
+  const [future, setFuture] = useState<SubtitleBlock[][]>([]);
+  const skipHistory = useRef(false);
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -95,7 +97,32 @@ export const EditorScreen = () => {
   };
 
   const updateBlocks = (newBlocks: SubtitleBlock[]) => {
+    if (!skipHistory.current) {
+      setPast(prev => [...prev, project.blocks]);
+      setFuture([]);
+    }
+    skipHistory.current = false;
     setProject({ ...project, blocks: newBlocks });
+    setIsUnsaved(true);
+  };
+
+  const handleUndo = () => {
+    if (past.length === 0) return;
+    const previous = past[past.length - 1];
+    setPast(prev => prev.slice(0, -1));
+    setFuture(prev => [project.blocks, ...prev]);
+    skipHistory.current = true;
+    setProject({ ...project, blocks: previous });
+    setIsUnsaved(true);
+  };
+
+  const handleRedo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    setFuture(prev => prev.slice(1));
+    setPast(prev => [...prev, project.blocks]);
+    skipHistory.current = true;
+    setProject({ ...project, blocks: next });
     setIsUnsaved(true);
   };
 
@@ -168,10 +195,7 @@ export const EditorScreen = () => {
         throw new Error('Processing failed. Original content preserved.');
       }
 
-      setUndoSnapshot([...project.blocks]);
       updateBlocks(newBlocks);
-      setShowUndo(true);
-      setTimeout(() => setShowUndo(false), 5000);
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -212,7 +236,7 @@ export const EditorScreen = () => {
         </View>
 
         <TouchableOpacity onPress={() => setShowExport(true)} style={styles.iconBtn}>
-          <Text style={styles.exportText}>Export</Text>
+          <Ionicons name="share-outline" size={24} color="#5C35C8" />
         </TouchableOpacity>
       </View>
 
@@ -257,12 +281,35 @@ export const EditorScreen = () => {
 
       {/* Bottom Action Bar */}
       <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderTopColor: isDark ? '#333' : '#E0E0E0' }]}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => callAIEndpoint('/style-srt', 'Styling subtitles...')} activeOpacity={0.75}>
-          <Text style={styles.actionBtnEmoji}>✨</Text>
+        {/* Undo */}
+        <TouchableOpacity 
+          style={[styles.actionBtn, past.length === 0 && styles.actionBtnDisabled]} 
+          onPress={handleUndo} 
+          activeOpacity={0.75}
+          disabled={past.length === 0}
+        >
+          <Ionicons name="arrow-undo" size={22} color={past.length > 0 ? (isDark ? '#FFF' : '#121212') : '#AAA'} />
         </TouchableOpacity>
+
+        {/* Redo */}
+        <TouchableOpacity 
+          style={[styles.actionBtn, future.length === 0 && styles.actionBtnDisabled]} 
+          onPress={handleRedo} 
+          activeOpacity={0.75}
+          disabled={future.length === 0}
+        >
+          <Ionicons name="arrow-redo" size={22} color={future.length > 0 ? (isDark ? '#FFF' : '#121212') : '#AAA'} />
+        </TouchableOpacity>
+
+        {/* Style */}
+        <TouchableOpacity style={styles.actionBtn} onPress={() => callAIEndpoint('/style-srt', 'Styling subtitles...')} activeOpacity={0.75}>
+          <Ionicons name="sparkles" size={22} color={isDark ? '#FFF' : '#121212'} />
+        </TouchableOpacity>
+
+        {/* Language */}
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowLanguagePicker(true)} activeOpacity={0.75}>
-          <Text style={styles.actionBtnEmoji}>🌐</Text>
-          <Text style={styles.dropdownArrow}>▾</Text>
+          <Ionicons name="globe-outline" size={22} color={isDark ? '#FFF' : '#121212'} />
+          <Ionicons name="chevron-down" size={14} color={isDark ? '#999' : '#666'} style={{ marginLeft: 2 }} />
         </TouchableOpacity>
       </View>
 
@@ -303,21 +350,6 @@ export const EditorScreen = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Undo Toast */}
-      {showUndo && (
-        <View style={styles.toast}>
-          <Text style={styles.toastText}>AI changes applied.</Text>
-          <TouchableOpacity onPress={() => {
-            if (undoSnapshot) {
-              updateBlocks(undoSnapshot);
-              setShowUndo(false);
-            }
-          }}>
-            <Text style={styles.undoText}>[Undo]</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <ExportModal
         visible={showExport}
         projectName={project.projectName}
@@ -349,7 +381,6 @@ const styles = StyleSheet.create({
   },
   savedText: { fontSize: 12, color: '#4CAF50', marginTop: 2 },
   unsavedText: { fontSize: 12, color: '#FF9800', marginTop: 2 },
-  exportText: { fontSize: 16, color: '#5C35C8', fontWeight: 'bold' },
   toggleRow: {
     flexDirection: 'row',
     marginHorizontal: 16,
@@ -367,31 +398,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 20,
-    padding: 16,
+    gap: 12,
+    padding: 14,
     borderTopWidth: 1,
   },
   actionBtn: {
     backgroundColor: '#F5F5F5',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     flexDirection: 'row',
     alignItems: 'center',
   },
-  actionBtnEmoji: {
-    fontSize: 22,
-  },
-  dropdownArrow: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
+  actionBtnDisabled: {
+    opacity: 0.4,
   },
   fab: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 85,
     right: 20,
     width: 56,
     height: 56,
@@ -445,19 +471,4 @@ const styles = StyleSheet.create({
   languageText: {
     fontSize: 16,
   },
-  toast: {
-    position: 'absolute',
-    bottom: 90,
-    left: 20,
-    right: 80,
-    backgroundColor: '#333',
-    padding: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  toastText: { color: '#FFF', fontSize: 14 },
-  undoText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 14 },
 });

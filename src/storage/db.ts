@@ -66,6 +66,11 @@ export const getAllProjects = async (): Promise<SRTProject[]> => {
   }));
 };
 
+export const getProjectCount = async (): Promise<number> => {
+  const row = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM projects');
+  return row?.count ?? 0;
+};
+
 export const deleteProject = async (projectId: string): Promise<void> => {
   db.runSync('DELETE FROM projects WHERE project_id = ?', [projectId]);
 };

@@ -7,7 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isOnline } from '../utils/networkCheck';
 import { isAllowedAudioFormat, isWavFile } from '../utils/fileValidator';
 import { parseSRT } from '../utils/srtParser';
-import { saveProject } from '../storage/db';
+import { saveProject, getProjectCount } from '../storage/db';
 
 // Replace YOUR_LOCAL_IP with your machine's local network IP (e.g. 192.168.1.10)
 // This is needed because Expo Go on a physical phone cannot reach localhost
@@ -104,9 +104,10 @@ export const AudioToSRTScreen = () => {
       const blocks = parseSRT(srtText);
       
       const timestamp = Date.now();
+      const count = await getProjectCount();
       const project = {
         projectId: timestamp.toString(),
-        projectName: `Untitled Project ${timestamp}`,
+        projectName: `Untitled Project ${count + 1}`,
         blocks,
         createdAt: timestamp,
         updatedAt: timestamp,

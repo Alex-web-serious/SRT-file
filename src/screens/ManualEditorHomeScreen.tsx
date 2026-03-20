@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { parseSRT } from '../utils/srtParser';
-import { saveProject } from '../storage/db';
+import { saveProject, getProjectCount } from '../storage/db';
 
 export const ManualEditorHomeScreen = () => {
   const isDark = useColorScheme() === 'dark';
@@ -14,9 +14,10 @@ export const ManualEditorHomeScreen = () => {
 
   const handleNewProject = async () => {
     const timestamp = Date.now();
+    const count = await getProjectCount();
     const project = {
       projectId: timestamp.toString(),
-      projectName: `New Project ${timestamp}`,
+      projectName: `Untitled Project ${count + 1}`,
       blocks: [{ id: 1, startTime: "00:00:00,000", endTime: "00:00:02,000", text: "" }],
       createdAt: timestamp,
       updatedAt: timestamp,
