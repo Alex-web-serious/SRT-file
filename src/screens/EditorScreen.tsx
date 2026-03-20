@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, useColorScheme, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,21 @@ import { isOnline } from '../utils/networkCheck';
 // Replace YOUR_LOCAL_IP with your machine's local network IP (e.g. 192.168.1.10)
 const BACKEND_URL = 'https://srt-file.onrender.com';
 
+const LANGUAGES = [
+  { label: 'Hinglish', value: 'Hinglish' },
+  { label: 'Spanish', value: 'Spanish' },
+  { label: 'French', value: 'French' },
+  { label: 'German', value: 'German' },
+  { label: 'Portuguese', value: 'Portuguese' },
+  { label: 'Italian', value: 'Italian' },
+  { label: 'Turkish', value: 'Turkish' },
+  { label: 'Japanese (Romaji)', value: 'Japanese Romaji' },
+  { label: 'Korean (Romanized)', value: 'Korean Romanized' },
+  { label: 'Arabic (Romanized)', value: 'Arabic Romanized' },
+  { label: 'Russian (Romanized)', value: 'Russian Romanized' },
+  { label: 'Chinese (Pinyin)', value: 'Chinese Pinyin' },
+];
+
 export const EditorScreen = () => {
   const isDark = useColorScheme() === 'dark';
   const route = useRoute<any>();
@@ -31,6 +46,7 @@ export const EditorScreen = () => {
   const [undoSnapshot, setUndoSnapshot] = useState<SubtitleBlock[] | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [savedIndicator, setSavedIndicator] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -114,7 +130,7 @@ export const EditorScreen = () => {
     updateBlocks([...project.blocks, newBlock]);
   };
 
-  const callAIEndpoint = async (endpoint: string, message: string) => {
+  const callAIEndpoint = async (endpoint: string, message: string, body?: any) => {
     const online = await isOnline();
     if (!online) {
       Alert.alert('Error', 'Internet required for AI features.');
@@ -129,10 +145,12 @@ export const EditorScreen = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
 
+      const requestBody = body ? { srt: srtString, ...body } : { srt: srtString };
+
       const response = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ srt: srtString }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
 
@@ -164,6 +182,11 @@ export const EditorScreen = () => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleLanguageSelect = (language: string) => {
+    setShowLanguagePicker(false);
+    callAIEndpoint('/convert-language', `Converting to ${language}...`, { language });
   };
 
   return (
@@ -235,15 +258,50 @@ export const EditorScreen = () => {
       {/* Bottom Action Bar */}
       <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderTopColor: isDark ? '#333' : '#E0E0E0' }]}>
         <TouchableOpacity style={styles.actionBtn} onPress={() => callAIEndpoint('/style-srt', 'Styling subtitles...')} activeOpacity={0.75}>
-          <Text style={styles.actionBtnText}>🎨 Style</Text>
+          <Text style={styles.actionBtnEmoji}>✨</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => callAIEndpoint('/convert-hinglish', 'Converting to Hinglish...')} activeOpacity={0.75}>
-          <Text style={styles.actionBtnText}>🔤 Hinglish</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={handleAddBlock} activeOpacity={0.75}>
-          <Text style={styles.actionBtnText}>+ Add Block</Text>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowLanguagePicker(true)} activeOpacity={0.75}>
+          <Text style={styles.actionBtnEmoji}>🌐</Text>
+          <Text style={styles.dropdownArrow}>▾</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Floating Add Button (FAB) */}
+      <TouchableOpacity style={styles.fab} onPress={handleAddBlock} activeOpacity={0.8}>
+        <Ionicons name="add" size={28} color="#FFF" />
+      </TouchableOpacity>
+
+      {/* Language Picker Modal */}
+      <Modal
+        visible={showLanguagePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLanguagePicker(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowLanguagePicker(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF' }]}>
+            <View style={styles.modalHandle} />
+            <Text style={[styles.modalTitle, { color: isDark ? '#FFF' : '#121212' }]}>Select Language</Text>
+            <ScrollView style={styles.languageList} showsVerticalScrollIndicator={false}>
+              {LANGUAGES.map((lang) => (
+                <TouchableOpacity
+                  key={lang.value}
+                  style={[styles.languageItem, { borderBottomColor: isDark ? '#333' : '#F0F0F0' }]}
+                  onPress={() => handleLanguageSelect(lang.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.languageText, { color: isDark ? '#FFF' : '#121212' }]}>{lang.label}</Text>
+                  <Ionicons name="chevron-forward" size={18} color={isDark ? '#666' : '#CCC'} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Undo Toast */}
       {showUndo && (
@@ -307,28 +365,91 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   bottomBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
     padding: 16,
     borderTopWidth: 1,
   },
   actionBtn: {
     backgroundColor: '#F5F5F5',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  actionBtnText: {
+  actionBtnEmoji: {
+    fontSize: 22,
+  },
+  dropdownArrow: {
     fontSize: 14,
+    color: '#666',
+    marginLeft: 4,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#5C35C8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    maxHeight: '60%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CCC',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#121212',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  languageList: {
+    flexGrow: 0,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  languageText: {
+    fontSize: 16,
   },
   toast: {
     position: 'absolute',
     bottom: 90,
     left: 20,
-    right: 20,
+    right: 80,
     backgroundColor: '#333',
     padding: 16,
     borderRadius: 8,

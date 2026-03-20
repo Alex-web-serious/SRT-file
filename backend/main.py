@@ -105,10 +105,14 @@ async def transcribe_audio(file: UploadFile = File(...)):
             os.remove(tmp_path)
 
 
-# ---------- REQUEST MODEL ----------
+# ---------- REQUEST MODELS ----------
 
 class SRTRequest(BaseModel):
     srt: str
+
+class LanguageRequest(BaseModel):
+    srt: str
+    language: str
 
 
 # ---------- STYLE SRT ----------
@@ -140,20 +144,20 @@ async def style_srt(req: SRTRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ---------- CONVERT HINGLISH ----------
+# ---------- CONVERT LANGUAGE ----------
 
-@app.post("/convert-hinglish")
-async def convert_hinglish(req: SRTRequest):
+@app.post("/convert-language")
+async def convert_language(req: LanguageRequest):
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = (
-            "Convert Hindi (Devanagari) text to Hinglish.\n"
+            f"Convert/transliterate the subtitle text to {req.language}.\n"
             "Rules:\n"
-            "- Do NOT translate meaning\n"
+            "- Do NOT translate meaning, only transliterate or convert script\n"
             "- Do NOT change timestamps\n"
             "- Do NOT change numbering\n"
-            "- Only transliterate Hindi\n"
+            "- Keep the same SRT structure\n"
             "- Return ONLY valid SRT\n\n"
             + req.srt
         )
@@ -164,5 +168,5 @@ async def convert_hinglish(req: SRTRequest):
         return PlainTextResponse(result)
 
     except Exception as e:
-        print("HINGLISH ERROR:", str(e))
+        print("LANGUAGE CONVERT ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))

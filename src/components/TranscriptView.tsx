@@ -12,36 +12,24 @@ export const TranscriptView: React.FC<Props> = ({ blocks, onUpdateBlocks }) => {
   const [text, setText] = useState('');
 
   useEffect(() => {
-    const combined = blocks.map(b => b.text).join('\n\n');
+    const combined = blocks.map(b => b.text).join(' ');
     setText(combined);
   }, [blocks]);
 
   const handleChange = (newText: string) => {
     setText(newText);
     
-    // Debounce sync
+    // Debounce sync — distribute edited text evenly across existing blocks
     setTimeout(() => {
-      const chunks = newText.split('\n\n');
+      const words = newText.split(/\s+/).filter(w => w.length > 0);
+      const blockCount = blocks.length || 1;
+      const wordsPerBlock = Math.max(1, Math.ceil(words.length / blockCount));
       const updatedBlocks = [...blocks];
       
-      chunks.forEach((chunk, index) => {
-        if (index < updatedBlocks.length) {
-          updatedBlocks[index].text = chunk;
-        } else {
-          // Create new block if needed
-          const lastBlock = updatedBlocks[updatedBlocks.length - 1];
-          updatedBlocks.push({
-            id: updatedBlocks.length + 1,
-            startTime: lastBlock ? lastBlock.endTime : "00:00:00,000",
-            endTime: lastBlock ? lastBlock.endTime : "00:00:02,000",
-            text: chunk,
-          });
-        }
-      });
-      
-      // Remove extra blocks if chunks were deleted
-      if (chunks.length < updatedBlocks.length) {
-        updatedBlocks.splice(chunks.length);
+      for (let i = 0; i < updatedBlocks.length; i++) {
+        const start = i * wordsPerBlock;
+        const chunk = words.slice(start, start + wordsPerBlock).join(' ');
+        updatedBlocks[i] = { ...updatedBlocks[i], text: chunk };
       }
       
       onUpdateBlocks(updatedBlocks);
