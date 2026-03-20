@@ -9,12 +9,12 @@ from groq import Groq
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Load env variables
+# Load env
 load_dotenv()
 
 app = FastAPI()
 
-# CORS (allow all for now)
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure APIs (FIXED ENV NAME)
+# ENV variables
 groq_api_key = os.getenv("GROQ_API_KEY")
 google_api_key = os.getenv("GOOGLE_API_KEY")
 
@@ -37,19 +37,39 @@ groq_client = Groq(api_key=groq_api_key)
 genai.configure(api_key=google_api_key)
 
 
-# Optional SRT validation (less strict)
+# ---------- SRT HELPERS ----------
+
+def format_time(seconds: float) -> str:
+    hrs = int(seconds // 3600)
+    mins = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds - int(seconds)) * 1000)
+    return f"{hrs:02}:{mins:02}:{secs:02},{millis:03}"
+
+
+def json_to_srt(segments):
+    srt = ""
+    for i, seg in enumerate(segments, start=1):
+        start = format_time(seg['start'])
+        end = format_time(seg['end'])
+        text = seg['text'].strip()
+        srt += f"{i}\n{start} --> {end}\n{text}\n\n"
+    return srt
+
+
 def validate_srt(text: str) -> bool:
     pattern = r'\d+\n\d{2}:\d{2}:\d{2},\d{3} -->'
     return bool(re.search(pattern, text.strip()))
 
 
-# 🎤 Transcribe Audio
+# ---------- TRANSCRIBE ----------
+
 @app.post("/transcribe-audio")
 async def transcribe_audio(file: UploadFile = File(...)):
     ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
 
     if ext not in ['mp3', 'm4a', 'aac']:
-        raise HTTPException(status_code=400, detail="Unsupported format. Use mp3, m4a, or aac.")
+        raise HTTPException(status_code=400, detail="Unsupported format")
 
     tmp_path = None
 
@@ -59,21 +79,22 @@ async def transcribe_audio(file: UploadFile = File(...)):
             tmp.write(await file.read())
             tmp_path = tmp.name
 
-        # Call Groq API
+        # Call Groq API (FIXED)
         with open(tmp_path, "rb") as audio_file:
             response = groq_client.audio.transcriptions.create(
                 file=(file.filename, audio_file.read()),
                 model="whisper-large-v3",
-                response_format="srt"
+                response_format="verbose_json"
             )
 
-        text = response.text  # FIXED
+        # Convert JSON → SRT
+        segments = response.segments
+        srt_text = json_to_srt(segments)
 
-        # Optional validation (can disable if issues)
-        if not validate_srt(text):
+        if not validate_srt(srt_text):
             print("WARNING: SRT validation failed")
 
-        return PlainTextResponse(text)
+        return PlainTextResponse(srt_text)
 
     except Exception as e:
         print("TRANSCRIPTION ERROR:", str(e))
@@ -84,12 +105,14 @@ async def transcribe_audio(file: UploadFile = File(...)):
             os.remove(tmp_path)
 
 
-# 📄 Request model
+# ---------- REQUEST MODEL ----------
+
 class SRTRequest(BaseModel):
     srt: str
 
 
-# ✨ Style SRT
+# ---------- STYLE SRT ----------
+
 @app.post("/style-srt")
 async def style_srt(req: SRTRequest):
     try:
@@ -117,14 +140,15 @@ async def style_srt(req: SRTRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 🔤 Convert Hinglish
+# ---------- CONVERT HINGLISH ----------
+
 @app.post("/convert-hinglish")
 async def convert_hinglish(req: SRTRequest):
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = (
-            "Convert Hindi (Devanagari) text to Hinglish (Roman letters).\n"
+            "Convert Hindi (Devanagari) text to Hinglish.\n"
             "Rules:\n"
             "- Do NOT translate meaning\n"
             "- Do NOT change timestamps\n"
