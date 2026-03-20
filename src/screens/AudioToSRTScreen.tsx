@@ -11,7 +11,7 @@ import { saveProject } from '../storage/db';
 
 // Replace YOUR_LOCAL_IP with your machine's local network IP (e.g. 192.168.1.10)
 // This is needed because Expo Go on a physical phone cannot reach localhost
-const BACKEND_URL = 'http://192.168.1.10:8000';
+const BACKEND_URL = 'https://srt-file.onrender.com';
 
 export const AudioToSRTScreen = () => {
   const isDark = useColorScheme() === 'dark';

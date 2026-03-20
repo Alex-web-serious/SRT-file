@@ -14,7 +14,7 @@ import { parseSRT } from '../utils/srtParser';
 import { isOnline } from '../utils/networkCheck';
 
 // Replace YOUR_LOCAL_IP with your machine's local network IP (e.g. 192.168.1.10)
-const BACKEND_URL = 'http://192.168.1.10:8000';
+const BACKEND_URL = 'https://srt-file.onrender.com';
 
 export const EditorScreen = () => {
   const isDark = useColorScheme() === 'dark';
