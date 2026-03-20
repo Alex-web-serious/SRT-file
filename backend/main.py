@@ -62,7 +62,7 @@ class SRTRequest(BaseModel):
 @app.post("/style-srt")
 async def style_srt(req: SRTRequest):
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = "You are a subtitle editor. Improve the readability of the following SRT subtitles.\nRules:\n- Do NOT change any timestamps\n- Do NOT change subtitle numbering or segmentation\n- Add punctuation where missing\n- Capitalize the first word of each subtitle\n- Use ALL CAPS for important or emphasis words\n- Return ONLY valid SRT format, nothing else\n\n" + req.srt
         response = model.generate_content(prompt)
         result = response.text
