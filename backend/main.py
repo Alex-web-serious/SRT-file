@@ -77,7 +77,7 @@ async def style_srt(req: SRTRequest):
 @app.post("/convert-hinglish")
 async def convert_hinglish(req: SRTRequest):
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = "You are a transliteration tool. Convert all Hindi text (Devanagari script) in the following SRT subtitles to Hinglish (Hindi words written in English/Roman letters).\nRules:\n- Do NOT translate the meaning\n- Do NOT change timestamps\n- Do NOT change subtitle numbering or segmentation\n- Only convert Devanagari script to Roman letters phonetically\n- Leave any text already in English as-is\n- Return ONLY valid SRT format, nothing else\n\n" + req.srt
         response = model.generate_content(prompt)
         result = response.text
