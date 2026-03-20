@@ -34,7 +34,7 @@ export const EditorScreen = () => {
   const isDark = useColorScheme() === 'dark';
   const route = useRoute<any>();
   const navigation = useNavigation();
-  
+
   const initialProject = route.params?.project as SRTProject;
   const [project, setProject] = useState<SRTProject>(initialProject);
   const [view, setView] = useState<'srt' | 'transcript'>('srt');
@@ -64,24 +64,24 @@ export const EditorScreen = () => {
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       if (!isUnsaved) return;
-      
+
       e.preventDefault();
       Alert.alert(
         'Save before leaving?',
         'You have unsaved changes.',
         [
-          { text: 'Cancel', style: 'cancel', onPress: () => {} },
-          { 
-            text: 'Exit Without Saving', 
-            style: 'destructive', 
-            onPress: () => navigation.dispatch(e.data.action) 
+          { text: 'Cancel', style: 'cancel', onPress: () => { } },
+          {
+            text: 'Exit Without Saving',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action)
           },
-          { 
-            text: 'Save & Exit', 
+          {
+            text: 'Save & Exit',
             onPress: async () => {
               await saveProjectToSQLite(project);
               navigation.dispatch(e.data.action);
-            } 
+            }
           },
         ]
       );
@@ -220,7 +220,7 @@ export const EditorScreen = () => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <Ionicons name="chevron-back" size={28} color={isDark ? '#FFF' : '#121212'} />
         </TouchableOpacity>
-        
+
         <View style={styles.titleContainer}>
           <TextInput
             style={[styles.projectNameInput, { color: isDark ? '#FFF' : '#121212' }]}
@@ -242,19 +242,19 @@ export const EditorScreen = () => {
 
       {/* View Toggle */}
       <View style={styles.toggleRow}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.toggleBtn, view === 'srt' && styles.toggleActive]}
           onPress={() => setView('srt')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.toggleText, view === 'srt' && styles.toggleTextActive]}>SRT View</Text>
+          <Text style={[styles.toggleText, view === 'srt' && styles.toggleTextActive]}>SRT</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.toggleBtn, view === 'transcript' && styles.toggleActive]}
           onPress={() => setView('transcript')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.toggleText, view === 'transcript' && styles.toggleTextActive]}>Transcript View</Text>
+          <Text style={[styles.toggleText, view === 'transcript' && styles.toggleTextActive]}>Transcript</Text>
         </TouchableOpacity>
       </View>
 
@@ -282,34 +282,34 @@ export const EditorScreen = () => {
       {/* Bottom Action Bar */}
       <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderTopColor: isDark ? '#333' : '#E0E0E0' }]}>
         {/* Undo */}
-        <TouchableOpacity 
-          style={[styles.actionBtn, past.length === 0 && styles.actionBtnDisabled]} 
-          onPress={handleUndo} 
+        <TouchableOpacity
+          style={[styles.actionBtn, past.length === 0 && styles.actionBtnDisabled]}
+          onPress={handleUndo}
           activeOpacity={0.75}
           disabled={past.length === 0}
         >
-          <Ionicons name="arrow-undo" size={22} color={past.length > 0 ? (isDark ? '#FFF' : '#121212') : '#AAA'} />
+          <Ionicons name="arrow-undo" size={22} color={past.length > 0 ? '#5C35C8' : '#999'} />
         </TouchableOpacity>
 
         {/* Redo */}
-        <TouchableOpacity 
-          style={[styles.actionBtn, future.length === 0 && styles.actionBtnDisabled]} 
-          onPress={handleRedo} 
+        <TouchableOpacity
+          style={[styles.actionBtn, future.length === 0 && styles.actionBtnDisabled]}
+          onPress={handleRedo}
           activeOpacity={0.75}
           disabled={future.length === 0}
         >
-          <Ionicons name="arrow-redo" size={22} color={future.length > 0 ? (isDark ? '#FFF' : '#121212') : '#AAA'} />
+          <Ionicons name="arrow-redo" size={22} color={future.length > 0 ? '#5C35C8' : '#999'} />
         </TouchableOpacity>
 
         {/* Style */}
         <TouchableOpacity style={styles.actionBtn} onPress={() => callAIEndpoint('/style-srt', 'Styling subtitles...')} activeOpacity={0.75}>
-          <Ionicons name="sparkles" size={22} color={isDark ? '#FFF' : '#121212'} />
+          <Ionicons name="sparkles" size={22} color="#5C35C8" />
         </TouchableOpacity>
 
         {/* Language */}
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowLanguagePicker(true)} activeOpacity={0.75}>
-          <Ionicons name="globe-outline" size={22} color={isDark ? '#FFF' : '#121212'} />
-          <Ionicons name="chevron-down" size={14} color={isDark ? '#999' : '#666'} style={{ marginLeft: 2 }} />
+          <Ionicons name="globe-outline" size={22} color="#5C35C8" />
+          <Ionicons name="chevron-down" size={14} color="#5C35C8" style={{ marginLeft: 2 }} />
         </TouchableOpacity>
       </View>
 
@@ -325,9 +325,9 @@ export const EditorScreen = () => {
         animationType="slide"
         onRequestClose={() => setShowLanguagePicker(false)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
           onPress={() => setShowLanguagePicker(false)}
         >
           <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF' }]}>
@@ -403,17 +403,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   actionBtn: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1A1A2E',
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderWidth: 1.5,
+    borderColor: '#5C35C8',
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
+    borderColor: '#555',
   },
   fab: {
     position: 'absolute',
