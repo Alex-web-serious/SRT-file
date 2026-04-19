@@ -14,65 +14,85 @@ export const SubtitleBlockComponent: React.FC<Props> = ({ block, index, onUpdate
   const isDark = useColorScheme() === 'dark';
   const textColor = isDark ? '#FFFFFF' : '#121212';
   const bgColor = isDark ? '#1E1E1E' : '#F5F5F5';
-  const borderColor = isDark ? '#333333' : '#E0E0E0';
+  const cardBorder = isDark ? '#333333' : '#E0E0E0';
+  const inputBorder = isDark ? '#444444' : '#CCCCCC';
+  const labelColor = isDark ? '#999999' : '#888888';
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor, borderColor }]}>
+    <View style={[styles.container, { backgroundColor: bgColor, borderColor: cardBorder }]}>
+      {/* Header: Block number + Delete */}
       <View style={styles.header}>
         <Text style={[styles.idText, { color: textColor }]}>#{index + 1}</Text>
         <TouchableOpacity onPress={onDelete} activeOpacity={0.75} style={styles.deleteBtn}>
-          <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+          <Ionicons name="trash-outline" size={22} color={isDark ? '#8A8A9E' : '#999'} />
         </TouchableOpacity>
       </View>
-      
+
+      {/* Time Row with labeled outlined fields */}
       <View style={styles.timeRow}>
-        <TextInput
-          style={[styles.timeInput, { color: textColor, borderColor }]}
-          value={block.startTime}
-          onChangeText={(text) => onUpdate({ ...block, startTime: text })}
-        />
-        <Text style={[styles.arrow, { color: textColor }]}>→</Text>
-        <TextInput
-          style={[styles.timeInput, { color: textColor, borderColor }]}
-          value={block.endTime}
-          onChangeText={(text) => onUpdate({ ...block, endTime: text })}
-        />
+        <View style={[styles.timeFieldWrapper, { borderColor: inputBorder }]}>
+          <Text style={[styles.timeLabel, { color: labelColor, backgroundColor: bgColor }]}>Start</Text>
+          <TextInput
+            style={[styles.timeInput, { color: textColor }]}
+            value={block.startTime}
+            onChangeText={(text) => onUpdate({ ...block, startTime: text })}
+            selectionColor="#5C35C8"
+          />
+        </View>
+
+        <Text style={[styles.arrow, { color: labelColor }]}>→</Text>
+
+        <View style={[styles.timeFieldWrapper, { borderColor: inputBorder }]}>
+          <Text style={[styles.timeLabel, { color: labelColor, backgroundColor: bgColor }]}>End</Text>
+          <TextInput
+            style={[styles.timeInput, { color: textColor }]}
+            value={block.endTime}
+            onChangeText={(text) => onUpdate({ ...block, endTime: text })}
+            selectionColor="#5C35C8"
+          />
+        </View>
       </View>
 
-      <TextInput
-        style={[styles.textInput, { color: textColor, borderColor }]}
-        multiline
-        value={block.text}
-        onChangeText={(text) => onUpdate({ ...block, text })}
-        placeholder="Subtitle text here..."
-        placeholderTextColor="#888"
-      />
+      {/* Subtitle Text Area */}
+      <View style={[styles.textFieldWrapper, { borderColor: inputBorder }]}>
+        <TextInput
+          style={[styles.textInput, { color: textColor }]}
+          multiline
+          value={block.text}
+          onChangeText={(text) => onUpdate({ ...block, text })}
+          placeholder="Subtitle text here..."
+          placeholderTextColor={isDark ? '#555' : '#AAA'}
+          selectionColor="#5C35C8"
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
     marginVertical: 6,
     marginHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   idText: {
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 16,
   },
   deleteBtn: {
     padding: 4,
@@ -80,26 +100,47 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  timeFieldWrapper: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    position: 'relative',
+  },
+  timeLabel: {
+    position: 'absolute',
+    top: -9,
+    left: 12,
+    fontSize: 12,
+    paddingHorizontal: 4,
+    fontWeight: '500',
   },
   timeInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: 6,
-    fontSize: 13,
-    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    padding: 0,
+    textAlign: 'left',
   },
   arrow: {
-    marginHorizontal: 8,
+    marginHorizontal: 10,
+    fontSize: 18,
     fontWeight: 'bold',
   },
+  textFieldWrapper: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   textInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
+    fontSize: 16,
     minHeight: 60,
-    fontSize: 15,
     textAlignVertical: 'top',
+    padding: 0,
+    lineHeight: 24,
   },
 });

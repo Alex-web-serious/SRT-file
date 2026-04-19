@@ -123,13 +123,12 @@ async def style_srt(req: SRTRequest):
         model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = (
-            "You are a subtitle editor. Improve readability of SRT subtitles.\n"
+            "You are a subtitle editor. Style the following subtitle text to improve readability.\n"
             "Rules:\n"
             "- Do NOT change timestamps\n"
             "- Do NOT change numbering\n"
-            "- Add punctuation\n"
-            "- Capitalize sentences\n"
-            "- Use ALL CAPS for emphasis\n"
+            "- Keep the EXACT same SRT structure, changing ONLY the subtitle text\n"
+            "- Add punctuation and capitalize sentences\n"
             "- Return ONLY valid SRT\n\n"
             + req.srt
         )

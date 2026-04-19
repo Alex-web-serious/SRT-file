@@ -7,11 +7,13 @@ import { SRTProject, SubtitleBlock } from '../types';
 import { saveProject } from '../storage/db';
 import { SubtitleBlockComponent } from '../components/SubtitleBlock';
 import { TranscriptView } from '../components/TranscriptView';
+import { SRTTextView } from '../components/SRTTextView';
 import { ExportModal } from '../components/ExportModal';
 import { StyleLoadingOverlay } from '../components/StyleLoadingOverlay';
 import { buildSRT } from '../utils/srtBuilder';
 import { parseSRT } from '../utils/srtParser';
 import { isOnline } from '../utils/networkCheck';
+import { CustomAlert, CustomAlertConfig } from '../components/CustomAlert';
 
 const BACKEND_URL = 'https://srt-file.onrender.com';
 
@@ -37,13 +39,14 @@ export const EditorScreen = () => {
 
   const initialProject = route.params?.project as SRTProject;
   const [project, setProject] = useState<SRTProject>(initialProject);
-  const [view, setView] = useState<'srt' | 'transcript'>('srt');
+  const [view, setView] = useState<'srt' | 'transcript' | 'text'>('srt');
   const [isUnsaved, setIsUnsaved] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
   const [savedIndicator, setSavedIndicator] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<CustomAlertConfig | null>(null);
 
   // Undo / Redo history
   const [past, setPast] = useState<SubtitleBlock[][]>([]);
@@ -66,25 +69,20 @@ export const EditorScreen = () => {
       if (!isUnsaved) return;
 
       e.preventDefault();
-      Alert.alert(
-        'Save before leaving?',
-        'You have unsaved changes.',
-        [
+      setAlertConfig({
+        title: 'Leave editor?',
+        message: 'Your changes are saved automatically.',
+        buttons: [
           { text: 'Cancel', style: 'cancel', onPress: () => { } },
           {
-            text: 'Exit Without Saving',
-            style: 'destructive',
-            onPress: () => navigation.dispatch(e.data.action)
-          },
-          {
-            text: 'Save & Exit',
+            text: 'OK',
             onPress: async () => {
               await saveProjectToSQLite(project);
               navigation.dispatch(e.data.action);
             }
           },
         ]
-      );
+      });
     });
     return unsubscribe;
   }, [navigation, isUnsaved, project]);
@@ -132,18 +130,22 @@ export const EditorScreen = () => {
   };
 
   const handleDeleteBlock = (id: number) => {
-    Alert.alert('Delete', 'Delete this subtitle?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Yes',
-        style: 'destructive',
-        onPress: () => {
-          const filtered = project.blocks.filter(b => b.id !== id);
-          const renumbered = filtered.map((b, i) => ({ ...b, id: i + 1 }));
-          updateBlocks(renumbered);
+    setAlertConfig({
+      title: 'Delete',
+      message: 'Delete this subtitle?',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: () => {
+            const filtered = project.blocks.filter(b => b.id !== id);
+            const renumbered = filtered.map((b, i) => ({ ...b, id: i + 1 }));
+            updateBlocks(renumbered);
+          }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   const handleAddBlock = () => {
@@ -160,7 +162,7 @@ export const EditorScreen = () => {
   const callAIEndpoint = async (endpoint: string, message: string, body?: any) => {
     const online = await isOnline();
     if (!online) {
-      Alert.alert('Error', 'Internet required for AI features.');
+      setAlertConfig({ title: 'Error', message: 'Internet required for AI features.' });
       return;
     }
 
@@ -199,9 +201,9 @@ export const EditorScreen = () => {
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        Alert.alert('Error', 'Request timed out. Please try again.');
+        setAlertConfig({ title: 'Error', message: 'Request timed out. Please try again.' });
       } else {
-        Alert.alert('Error', error.message || 'Processing failed. Original content preserved.');
+        setAlertConfig({ title: 'Error', message: error.message || 'Processing failed. Original content preserved.' });
       }
     } finally {
       setAiLoading(false);
@@ -235,26 +237,66 @@ export const EditorScreen = () => {
           {isUnsaved && !savedIndicator && <Text style={styles.unsavedText}>Unsaved changes</Text>}
         </View>
 
-        <TouchableOpacity onPress={() => setShowExport(true)} style={styles.iconBtn}>
-          <Ionicons name="share-outline" size={24} color="#5C35C8" />
+        <TouchableOpacity onPress={() => setShowExport(true)} style={styles.exportBtn}>
+          <Text style={styles.exportText}>Export</Text>
         </TouchableOpacity>
       </View>
 
       {/* View Toggle */}
-      <View style={styles.toggleRow}>
+      <View style={[styles.toggleRow, { backgroundColor: isDark ? '#1E1E1E' : '#E8E8E8' }]}>
         <TouchableOpacity
           style={[styles.toggleBtn, view === 'srt' && styles.toggleActive]}
           onPress={() => setView('srt')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.toggleText, view === 'srt' && styles.toggleTextActive]}>SRT</Text>
+          {view === 'srt' ? (
+            <Text style={styles.toggleTextActive}>SRT</Text>
+          ) : (
+            <Ionicons name="chatbox-ellipses-outline" size={20} color={isDark ? '#888' : '#666'} />
+          )}
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.toggleBtn, view === 'transcript' && styles.toggleActive]}
           onPress={() => setView('transcript')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.toggleText, view === 'transcript' && styles.toggleTextActive]}>Transcript</Text>
+          {view === 'transcript' ? (
+            <Text style={styles.toggleTextActive}>Transcript</Text>
+          ) : (
+            <Ionicons name="document-text-outline" size={20} color={isDark ? '#888' : '#666'} />
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleBtn, view === 'text' && styles.toggleActive]}
+          onPress={() => setView('text')}
+          activeOpacity={0.8}
+        >
+          {view === 'text' ? (
+            <Text style={styles.toggleTextActive}>Text</Text>
+          ) : (
+            <Ionicons name="text-outline" size={20} color={isDark ? '#888' : '#666'} />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Undo / Redo Row */}
+      <View style={styles.undoRedoRow}>
+        <TouchableOpacity
+          style={styles.smallIconButton}
+          onPress={handleUndo}
+          activeOpacity={0.7}
+          disabled={past.length === 0}
+        >
+          <Ionicons name="arrow-undo-outline" size={20} color={past.length > 0 ? (isDark ? '#FFF' : '#121212') : (isDark ? '#555' : '#CCC')} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.smallIconButton}
+          onPress={handleRedo}
+          activeOpacity={0.7}
+          disabled={future.length === 0}
+        >
+          <Ionicons name="arrow-redo-outline" size={20} color={future.length > 0 ? (isDark ? '#FFF' : '#121212') : (isDark ? '#555' : '#CCC')} />
         </TouchableOpacity>
       </View>
 
@@ -274,42 +316,25 @@ export const EditorScreen = () => {
             )}
             contentContainerStyle={{ paddingBottom: 100 }}
           />
-        ) : (
+        ) : view === 'transcript' ? (
           <TranscriptView blocks={project.blocks} onUpdateBlocks={updateBlocks} />
+        ) : (
+          <SRTTextView blocks={project.blocks} onUpdateBlocks={updateBlocks} />
         )}
       </View>
 
       {/* Bottom Action Bar */}
       <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF', borderTopColor: isDark ? '#333' : '#E0E0E0' }]}>
-        {/* Undo */}
-        <TouchableOpacity
-          style={[styles.actionBtn, past.length === 0 && styles.actionBtnDisabled]}
-          onPress={handleUndo}
-          activeOpacity={0.75}
-          disabled={past.length === 0}
-        >
-          <Ionicons name="arrow-undo" size={22} color={past.length > 0 ? '#5C35C8' : '#999'} />
-        </TouchableOpacity>
-
-        {/* Redo */}
-        <TouchableOpacity
-          style={[styles.actionBtn, future.length === 0 && styles.actionBtnDisabled]}
-          onPress={handleRedo}
-          activeOpacity={0.75}
-          disabled={future.length === 0}
-        >
-          <Ionicons name="arrow-redo" size={22} color={future.length > 0 ? '#5C35C8' : '#999'} />
-        </TouchableOpacity>
-
         {/* Style */}
         <TouchableOpacity style={styles.actionBtn} onPress={() => callAIEndpoint('/style-srt', 'Styling subtitles...')} activeOpacity={0.75}>
           <Ionicons name="sparkles" size={22} color="#5C35C8" />
+          <Text style={styles.actionBtnLabel}>Style</Text>
         </TouchableOpacity>
 
         {/* Language */}
         <TouchableOpacity style={styles.actionBtn} onPress={() => setShowLanguagePicker(true)} activeOpacity={0.75}>
           <Ionicons name="globe-outline" size={22} color="#5C35C8" />
-          <Ionicons name="chevron-down" size={14} color="#5C35C8" style={{ marginLeft: 2 }} />
+          <Text style={styles.actionBtnLabel}>Language</Text>
         </TouchableOpacity>
       </View>
 
@@ -357,6 +382,7 @@ export const EditorScreen = () => {
         onClose={() => setShowExport(false)}
       />
       <StyleLoadingOverlay visible={aiLoading} message={aiMessage} />
+      <CustomAlert visible={!!alertConfig} config={alertConfig} onClose={() => setAlertConfig(null)} />
     </SafeAreaView>
   );
 };
@@ -371,6 +397,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   iconBtn: { padding: 8 },
+  exportBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  exportText: {
+    color: '#5C35C8',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
   titleContainer: { flex: 1, alignItems: 'center' },
   projectNameInput: {
     fontSize: 18,
@@ -385,14 +420,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 16,
     marginBottom: 10,
-    borderRadius: 8,
-    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
     overflow: 'hidden',
+    padding: 3,
   },
-  toggleBtn: { flex: 1, padding: 10, alignItems: 'center' },
-  toggleActive: { backgroundColor: '#5C35C8' },
-  toggleText: { color: '#666', fontWeight: 'bold' },
-  toggleTextActive: { color: '#FFF' },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  toggleActive: {
+    backgroundColor: '#5C35C8',
+  },
+  toggleTextActive: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  undoRedoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    gap: 16,
+  },
+  smallIconButton: {
+    padding: 6,
+  },
   content: { flex: 1 },
   bottomBar: {
     flexDirection: 'row',
@@ -404,9 +460,9 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     backgroundColor: '#1A1A2E',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 22,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderColor: '#5C35C8',
     flexDirection: 'row',
@@ -415,6 +471,12 @@ const styles = StyleSheet.create({
   actionBtnDisabled: {
     opacity: 0.35,
     borderColor: '#555',
+  },
+  actionBtnLabel: {
+    color: '#5C35C8',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   fab: {
     position: 'absolute',

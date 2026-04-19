@@ -6,6 +6,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { AudioToSRTScreen } from './src/screens/AudioToSRTScreen';
 import { EditorScreen } from './src/screens/EditorScreen';
 import { ManualEditorHomeScreen } from './src/screens/ManualEditorHomeScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { initDB } from './src/storage/db';
 import { SRTProject } from './src/types';
 
@@ -14,6 +15,7 @@ export type RootStackParamList = {
   AudioToSRT: undefined;
   ManualEditorHome: undefined;
   Editor: { project: SRTProject };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -32,6 +34,7 @@ export default function App() {
           <Stack.Screen name="AudioToSRT" component={AudioToSRTScreen} />
           <Stack.Screen name="ManualEditorHome" component={ManualEditorHomeScreen} />
           <Stack.Screen name="Editor" component={EditorScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

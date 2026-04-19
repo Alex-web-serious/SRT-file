@@ -8,6 +8,7 @@ import { isOnline } from '../utils/networkCheck';
 import { isAllowedAudioFormat, isWavFile } from '../utils/fileValidator';
 import { parseSRT } from '../utils/srtParser';
 import { saveProject, getProjectCount } from '../storage/db';
+import { CustomAlert, CustomAlertConfig } from '../components/CustomAlert';
 
 // Replace YOUR_LOCAL_IP with your machine's local network IP (e.g. 192.168.1.10)
 // This is needed because Expo Go on a physical phone cannot reach localhost
@@ -18,6 +19,29 @@ export const AudioToSRTScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [isConverting, setIsConverting] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<CustomAlertConfig | null>(null);
+
+  // Live loading lines state
+  const loadingLines = [
+    "Extracting audio track...",
+    "Analyzing speech patterns...",
+    "Transcribing vocabulary...",
+    "Generating perfect timestamps...",
+    "Formatting SRT data...",
+  ];
+  const [activeLine, setActiveLine] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isConverting) {
+      interval = setInterval(() => {
+        setActiveLine((prev) => (prev + 1) % loadingLines.length);
+      }, 3000);
+    } else {
+      setActiveLine(0);
+    }
+    return () => clearInterval(interval);
+  }, [isConverting]);
 
   useEffect(() => {
     checkNetwork();
@@ -26,14 +50,14 @@ export const AudioToSRTScreen = () => {
   const checkNetwork = async () => {
     const online = await isOnline();
     if (!online) {
-      Alert.alert(
-        'Internet Required',
-        'Please turn on internet to generate subtitles.',
-        [
+      setAlertConfig({
+        title: 'Internet Required',
+        message: 'Please turn on internet to generate subtitles.',
+        buttons: [
           { text: 'Cancel', onPress: () => navigation.goBack(), style: 'cancel' },
           { text: 'Retry', onPress: checkNetwork }
         ]
-      );
+      });
     }
   };
 
@@ -46,9 +70,9 @@ export const AudioToSRTScreen = () => {
 
       if (!result.canceled && result.assets.length > 0) {
         const file = result.assets[0];
-        
+
         if (isWavFile(file.name) || !isAllowedAudioFormat(file.name)) {
-          Alert.alert('Error', 'Only mp3, m4a, and aac files are supported');
+          setAlertConfig({ title: 'Error', message: 'Only mp3, m4a, and aac files are supported' });
           return;
         }
         setSelectedFile(file);
@@ -60,14 +84,14 @@ export const AudioToSRTScreen = () => {
 
   const handleConvert = async () => {
     if (isConverting) {
-      Alert.alert('Wait', 'Please wait, conversion already in progress');
+      setAlertConfig({ title: 'Wait', message: 'Please wait, conversion already in progress' });
       return;
     }
     if (!selectedFile) return;
 
     const online = await isOnline();
     if (!online) {
-      Alert.alert('Error', 'No internet connection. Please check your connection.');
+      setAlertConfig({ title: 'Error', message: 'No internet connection. Please check your connection.' });
       return;
     }
 
@@ -102,7 +126,7 @@ export const AudioToSRTScreen = () => {
 
       const srtText = await response.text();
       const blocks = parseSRT(srtText);
-      
+
       const timestamp = Date.now();
       const count = await getProjectCount();
       const project = {
@@ -118,9 +142,9 @@ export const AudioToSRTScreen = () => {
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        Alert.alert('Error', 'Request timed out. Please try again.');
+        setAlertConfig({ title: 'Error', message: 'Request timed out. Please try again.' });
       } else {
-        Alert.alert('Error', error.message || 'Transcription failed. Please try again.');
+        setAlertConfig({ title: 'Error', message: error.message || 'Transcription failed. Please try again.' });
       }
     } finally {
       setIsConverting(false);
@@ -130,32 +154,58 @@ export const AudioToSRTScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#121212' : '#FFFFFF' }]}>
       <Text style={[styles.title, { color: isDark ? '#FFF' : '#121212' }]}>Audio to SRT</Text>
-      
-      <TouchableOpacity style={styles.pickBtn} onPress={handlePickFile} activeOpacity={0.75}>
-        <Text style={styles.pickBtnText}>Select Audio File</Text>
-      </TouchableOpacity>
-      
-      {selectedFile && (
-        <Text style={[styles.fileName, { color: isDark ? '#CCC' : '#666' }]}>
-          Selected: {selectedFile.name}
-        </Text>
+
+      {isConverting ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#5C35C8" style={{ marginBottom: 20 }} />
+          <Text style={[styles.loadingTitle, { color: isDark ? '#FFF' : '#121212' }]}>
+            Processing audio... large files may take some time. Please do not close the app.
+          </Text>
+          <View style={[styles.fakeLinesContainer, { backgroundColor: isDark ? '#1E1E1E' : '#F5F5F5' }]}>
+            {loadingLines.map((line, index) => {
+              const isActive = index === activeLine;
+              return (
+                <Text
+                  key={index}
+                  style={[
+                    styles.fakeLine,
+                    {
+                      color: isActive ? '#5C35C8' : (isDark ? '#666' : '#999'),
+                      opacity: isActive ? 1 : 0.5,
+                      fontWeight: isActive ? 'bold' : 'normal'
+                    }
+                  ]}
+                >
+                  {line}
+                </Text>
+              )
+            })}
+          </View>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity style={styles.pickBtn} onPress={handlePickFile} activeOpacity={0.75}>
+            <Text style={styles.pickBtnText}>Select Audio File</Text>
+          </TouchableOpacity>
+
+          {selectedFile && (
+            <Text style={[styles.fileName, { color: isDark ? '#CCC' : '#666' }]}>
+              Selected: {selectedFile.name}
+            </Text>
+          )}
+
+          <TouchableOpacity
+            style={[styles.convertBtn, !selectedFile && styles.disabledBtn]}
+            onPress={handleConvert}
+            disabled={!selectedFile}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.convertBtnText}>Convert to SRT</Text>
+          </TouchableOpacity>
+        </>
       )}
 
-      <TouchableOpacity 
-        style={[styles.convertBtn, (!selectedFile || isConverting) && styles.disabledBtn]} 
-        onPress={handleConvert}
-        disabled={!selectedFile || isConverting}
-        activeOpacity={0.75}
-      >
-        {isConverting ? (
-          <View style={styles.row}>
-            <ActivityIndicator color="#FFF" style={{ marginRight: 10 }} />
-            <Text style={styles.convertBtnText}>Processing audio...</Text>
-          </View>
-        ) : (
-          <Text style={styles.convertBtnText}>Convert to SRT</Text>
-        )}
-      </TouchableOpacity>
+      <CustomAlert visible={!!alertConfig} config={alertConfig} onClose={() => setAlertConfig(null)} />
     </SafeAreaView>
   );
 };
@@ -184,4 +234,26 @@ const styles = StyleSheet.create({
   disabledBtn: { backgroundColor: '#A090D0' },
   convertBtnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   row: { flexDirection: 'row', alignItems: 'center' },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 20,
+  },
+  loadingTitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+  fakeLinesContainer: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 12,
+  },
+  fakeLine: {
+    fontSize: 15,
+    marginVertical: 8,
+    textAlign: 'center',
+  },
 });

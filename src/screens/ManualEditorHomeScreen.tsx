@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, useColorScheme } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -7,10 +7,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { parseSRT } from '../utils/srtParser';
 import { saveProject, getProjectCount } from '../storage/db';
+import { CustomAlert, CustomAlertConfig } from '../components/CustomAlert';
+import { Ionicons } from '@expo/vector-icons';
 
 export const ManualEditorHomeScreen = () => {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const [alertConfig, setAlertConfig] = useState<CustomAlertConfig | null>(null);
 
   const handleNewProject = async () => {
     const timestamp = Date.now();
@@ -37,7 +40,7 @@ export const ManualEditorHomeScreen = () => {
         const file = result.assets[0];
         
         if (!file.name.toLowerCase().endsWith('.srt')) {
-          Alert.alert('Error', 'Please select a valid .srt file');
+          setAlertConfig({ title: 'Error', message: 'Please select a valid .srt file' });
           return;
         }
 
@@ -45,7 +48,7 @@ export const ManualEditorHomeScreen = () => {
         const blocks = parseSRT(content);
 
         if (blocks.length === 0) {
-          Alert.alert('Error', 'Invalid SRT file format. Could not read this file.');
+          setAlertConfig({ title: 'Error', message: 'Invalid SRT file format. Could not read this file.' });
           return;
         }
 
@@ -62,37 +65,85 @@ export const ManualEditorHomeScreen = () => {
         navigation.replace('Editor', { project });
       }
     } catch (err) {
-      Alert.alert('Error', 'Could not read file. Please try again.');
+      setAlertConfig({ title: 'Error', message: 'Could not read file. Please try again.' });
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#121212' : '#FFFFFF' }]}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <Ionicons name="chevron-back" size={28} color={isDark ? '#FFF' : '#121212'} />
+      </TouchableOpacity>
+
       <Text style={[styles.title, { color: isDark ? '#FFF' : '#121212' }]}>Manual Editor</Text>
+      <Text style={styles.subtitle}>Create or import subtitle files</Text>
 
-      <TouchableOpacity style={styles.btn} onPress={handleNewProject} activeOpacity={0.75}>
-        <Text style={styles.btnTitle}>New Project</Text>
-        <Text style={styles.btnDesc}>Create a blank subtitle project</Text>
+      {/* New Project Card */}
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: isDark ? '#1E1E1E' : '#F8F8FF' }]}
+        onPress={handleNewProject}
+        activeOpacity={0.75}
+      >
+        <View style={styles.cardIconWrap}>
+          <Ionicons name="add-circle-outline" size={30} color="#5C35C8" />
+        </View>
+        <View style={styles.cardTextWrap}>
+          <Text style={[styles.cardTitle, { color: isDark ? '#FFF' : '#121212' }]}>New Project</Text>
+          <Text style={[styles.cardDesc, { color: isDark ? '#999' : '#666' }]}>Create a blank subtitle project</Text>
+        </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.btn} onPress={handleOpenFile} activeOpacity={0.75}>
-        <Text style={styles.btnTitle}>Open SRT File</Text>
-        <Text style={styles.btnDesc}>Open an existing .srt file from your device</Text>
+      {/* Open SRT File Card */}
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: isDark ? '#1E1E1E' : '#F8F8FF' }]}
+        onPress={handleOpenFile}
+        activeOpacity={0.75}
+      >
+        <View style={styles.cardIconWrap}>
+          <Ionicons name="folder-open-outline" size={30} color="#5C35C8" />
+        </View>
+        <View style={styles.cardTextWrap}>
+          <Text style={[styles.cardTitle, { color: isDark ? '#FFF' : '#121212' }]}>Open SRT File</Text>
+          <Text style={[styles.cardDesc, { color: isDark ? '#999' : '#666' }]}>Open an existing .srt file from your device</Text>
+        </View>
       </TouchableOpacity>
+
+      <CustomAlert visible={!!alertConfig} config={alertConfig} onClose={() => setAlertConfig(null)} />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 40, textAlign: 'center' },
-  btn: {
-    backgroundColor: '#5C35C8',
+  container: { flex: 1, padding: 20 },
+  backBtn: { padding: 8, marginBottom: 12, alignSelf: 'flex-start' },
+  title: { fontSize: 30, fontWeight: 'bold', marginBottom: 4 },
+  subtitle: { fontSize: 16, color: '#888', marginBottom: 32 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-    elevation: 2,
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#5C35C8',
+    elevation: 3,
+    shadowColor: '#5C35C8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
-  btnTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
-  btnDesc: { color: '#E0E0E0', fontSize: 14 },
+  cardIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: 'rgba(92, 53, 200, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  cardTextWrap: {
+    flex: 1,
+  },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+  cardDesc: { fontSize: 14, lineHeight: 20 },
 });
